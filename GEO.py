@@ -1584,6 +1584,41 @@ def handle_update(update):
         data = callback_query['data']
         requests.post(f'{BASE_URL}answerCallbackQuery', json={'callback_query_id': callback_query['id']})
 
+        # Проверяем что за callback_data к нам прилетел
+        # Если callback_data=f"teacher_{name}"
+        if "teacher_" in data:
+            parts = data.split('_')
+            search_name = parts[1].strip().lower()  # Приводим запрос к нижнему регистру
+            logger.info(f"Запрошен поиск учителя по имени: {search_name}")
+
+            # Поиск учителей по частичному совпадению
+            found_teachers = []
+            for teacher_name, teacher_info in teachers.items():
+                if search_name in teacher_name.lower():
+                    found_teachers.append((teacher_name, teacher_info))
+
+            if len(found_teachers) == 1:
+                # Если найден один учитель, выводим его данные
+                teacher_name, teacher_info = found_teachers[0]
+                response = f"👨‍🏫 Учитель: {teacher_name}\n"
+                response += f"🚪 Кабинет: {teacher_info.get('room', 'не указан')}\n"
+                if "subjects" in teacher_info and teacher_info["subjects"]:
+                    response += f"📚 Предметы: {', '.join(teacher_info['subjects'])}\n"
+                else:
+                    response += "📚 Предметы: не указаны\n"
+                if "classes" in teacher_info and teacher_info["classes"]:
+                    response += f"👥 Классы: {', '.join(teacher_info['classes'])}"
+                else:
+                    response += "👥 Классы: не указаны"
+                send_message(chat_id, response)
+            else:
+                # Если найдено несколько учителей, предлагаем выбрать
+                keyboard = [[InlineKeyboardButton(name, callback_data=f"teacher_{name}")] for name, _ in
+                            found_teachers]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                send_message(chat_id, "Найдено несколько учителей. Выберите одного:", reply_markup)
+
+        
         # Обработка выбора группы или класса
         parts = data.split('_')
         if len(parts) >= 2:
